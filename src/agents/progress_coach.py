@@ -158,6 +158,17 @@ def progress_coach_node(state: dict) -> dict:
     return {
         "roadmap": roadmap,
         "current_topic_index": next_idx,
-        "messages": [AIMessage(content=coaching.get("summary", ""))],
+        "messages": [
+            AIMessage(
+                content=(
+                    f"{coaching.get('summary', '')}\n"
+                    f"{coaching.get('encouragement', '')}"
+                ).strip()
+            )
+        ],
+        "last_coaching_message": (
+            f"{coaching.get('summary', '')}\n"
+            f"{coaching.get('encouragement', '')}"
+        ).strip(),
         "error": None,
     }

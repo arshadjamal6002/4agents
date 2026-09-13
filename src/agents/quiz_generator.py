@@ -145,13 +145,44 @@ def parse_grade_payload(grade: dict) -> dict:
 
 
 def extract_explanation(messages: list) -> str:
-    """Last AIMessage with content and no tool_calls (Explainer final reply)."""
-    for msg in reversed(messages or []):
-        if isinstance(msg, AIMessage) and msg.content:
-            tool_calls = getattr(msg, "tool_calls", None) or []
-            if not tool_calls:
-                return msg.content if isinstance(msg.content, str) else str(msg.content)
-    return ""
+    """Best Explainer reply: skip tool calls and memory-ack fluff; prefer substance."""
+    import re
+
+    ack_patterns = (
+        r"\bi'?ve stored\b",
+        r"\bstored the explanation\b",
+        r"\bfor future reference\b",
+        r"\bfeel free to ask\b",
+        r"^stored ['\"]",
+    )
+
+    def _is_ack(text: str) -> bool:
+        low = text.lower().strip()
+        if len(low) < 80 and any(re.search(p, low) for p in ack_patterns):
+            return True
+        if any(re.search(p, low) for p in ack_patterns) and len(low) < 220:
+            # Short "I've stored... feel free to ask" style replies
+            if "analogy" not in low and "```" not in text and "example" not in low:
+                return True
+        return False
+
+    candidates: list[str] = []
+    for msg in messages or []:
+        if not isinstance(msg, AIMessage) or not msg.content:
+            continue
+        tool_calls = getattr(msg, "tool_calls", None) or []
+        if tool_calls:
+            continue
+        text = msg.content if isinstance(msg.content, str) else str(msg.content)
+        text = text.strip()
+        if not text or _is_ack(text):
+            continue
+        candidates.append(text)
+
+    if not candidates:
+        return ""
+    # Prefer the longest substantive explanation (tool-loop may leave a short ack last)
+    return max(candidates, key=len)
 
 
 def run_quiz(topic: str, explanation: str) -> QuizResult:

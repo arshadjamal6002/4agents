@@ -10,9 +10,10 @@ langchain-openai==1.0.0
 
 mcp==1.26.0
 langfuse==3.9.1
-# Langfuse CallbackHandler does `import langchain`. Install WITHOUT deps so it
-# does not pull an incompatible langgraph:
-#   pip install langchain==1.0.0 --no-deps
+# Do NOT pip-install the full `langchain` meta-package (conflicts with langgraph 1.1).
+# A tiny `langchain/` stub in this repo satisfies langfuse's `import langchain`.
+
+streamlit==1.43.2
 
 openai==2.8.0
 httpx==0.28.1

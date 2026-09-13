@@ -17,6 +17,8 @@ def test_initial_state_defaults():
     assert state["approved"] is False
     assert state["current_topic_index"] == 0
     assert state["error"] is None
+    assert state["last_explanation"] == ""
+    assert state["last_coaching_message"] == ""
 
 
 def test_get_current_topic_from_dataclass():

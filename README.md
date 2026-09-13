@@ -65,9 +65,12 @@ OpenAI replaces the book’s Ollama for all LLM calls.
 ```
 4agents/
 ├── main.py                      # CLI entry: run / resume / list-sessions
+├── streamlit_app.py             # Web UI (Streamlit Cloud)
 ├── requirements.txt
 ├── pyproject.toml               # pytest pythonpath = src
 ├── .env.example
+├── .streamlit/                  # Streamlit config (+ secrets example)
+├── langchain/                   # Tiny stub for langfuse import (not full langchain)
 ├── src/
 │   ├── agents/
 │   │   ├── curriculum_planner.py
@@ -120,8 +123,6 @@ py -3.12 -m venv .venv
 # python3.12 -m venv .venv && source .venv/bin/activate
 
 pip install -r requirements.txt
-# Needed so langfuse.langchain can `import langchain` (do not drop --no-deps):
-pip install langchain==1.0.0 --no-deps
 copy .env.example .env          # Windows
 # cp .env.example .env          # macOS / Linux
 ```
@@ -134,13 +135,14 @@ Edit `.env`:
 | `OPENAI_MODEL` | Default `gpt-4o-mini` |
 | `CHECKPOINT_DB` | Default `data/checkpoints.db` |
 | `NOTES_PATH` | Default `study_materials/sample_notes` |
+| `DEMO_MAX_TOPICS` | Optional; trim roadmap (default `2` in Streamlit) |
 | `LANGFUSE_PUBLIC_KEY` / `SECRET_KEY` | Optional — leave empty to skip tracing |
 | `LANGFUSE_BASE_URL` or `LANGFUSE_HOST` | Cloud: `https://cloud.langfuse.com` |
 | `USE_A2A_*` / service URLs | Unused until Version 8 |
 
 ---
 
-## Run
+## Run (CLI)
 
 ```bash
 python main.py "Learn Python closures and decorators from scratch"
@@ -154,7 +156,41 @@ python main.py "Learn Python closures and decorators from scratch"
 4. Quiz asks questions; you answer in the terminal; answers are graded
 5. Coach gives feedback and moves to the next topic (or ends)
 
-A full 4–6 topic roadmap uses many OpenAI calls (Explainer tool rounds + quiz + coach per topic).
+Set `DEMO_MAX_TOPICS=2` in `.env` for a short demo / faster Langfuse test.
+`main.py` always flushes Langfuse traces in a `finally` block (including Ctrl+C).
+
+### Web UI (Streamlit) — share a URL with your lead
+
+**Not Vercel** — Streamlit needs a long-running Python host.
+
+#### Local
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Opens `http://localhost:8501` — approve, explain, quiz in the browser.
+
+#### Deploy on Streamlit Community Cloud (recommended)
+
+1. Push this repo to GitHub (public or private).
+2. Go to [https://share.streamlit.io](https://share.streamlit.io) → **New app**.
+3. Select the repo, branch, and main file: `streamlit_app.py`.
+   (`runtime.txt` pins Python 3.12 for Cloud.)
+4. Under **Advanced settings → Secrets**, paste TOML (see `.streamlit/secrets.toml.example`):
+
+```toml
+OPENAI_API_KEY = "sk-..."
+OPENAI_MODEL = "gpt-4o-mini"
+LANGFUSE_PUBLIC_KEY = "pk-lf-..."
+LANGFUSE_SECRET_KEY = "sk-lf-..."
+LANGFUSE_BASE_URL = "https://cloud.langfuse.com"
+DEMO_MAX_TOPICS = "2"
+```
+
+5. Deploy → you get a URL like `https://your-app.streamlit.app` to send your team lead.
+
+Never commit real secrets; `.streamlit/secrets.toml` is gitignored.
 
 ### Resume (Version 5)
 

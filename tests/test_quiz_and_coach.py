@@ -23,6 +23,25 @@ def test_extract_explanation_skips_tool_calls():
     assert extract_explanation(messages) == "Here is the real explanation."
 
 
+def test_extract_explanation_skips_memory_ack():
+    real = (
+        "Think of an if-statement like a fork in the road.\n\n"
+        "Core idea: conditionals choose a branch.\n\n"
+        "```python\nif n > 10:\n    print('big')\n```\n\n"
+        "Common mistake: using = instead of ==."
+    )
+    messages = [
+        AIMessage(content=real),
+        AIMessage(
+            content=(
+                "I've stored the explanation about Control Structures for future "
+                "reference. If you have any more questions, feel free to ask!"
+            )
+        ),
+    ]
+    assert extract_explanation(messages) == real
+
+
 def test_parse_grade_payload_clamps_score():
     parsed = parse_grade_payload(
         {"correct": True, "score": 1.5, "feedback": "Great", "missing_concept": ""}

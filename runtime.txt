@@ -1,0 +1,2 @@
+# Streamlit Community Cloud: pin Python version
+python-3.12

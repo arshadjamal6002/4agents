@@ -129,6 +129,31 @@ def run_session(goal: str, session_id: str | None = None) -> None:
 
     try:
         result = graph.invoke(state, config=config)
+
+        # HITL: interrupt() inside human_approval_node returns "__interrupt__".
+        # Rejecting the plan re-runs the planner and may interrupt again.
+        while "__interrupt__" in result:
+            interrupt_payload = result["__interrupt__"][0].value
+            print_interrupt_roadmap(interrupt_payload)
+            print(f"\n{interrupt_payload.get('prompt', 'Continue?')}")
+            user_input = input("> ").strip()
+            result = graph.invoke(Command(resume=user_input), config=config)
+
+        if result.get("error"):
+            print(f"\n[ERROR] {result['error']}")
+            return
+
+        print_session_summary(result)
+        print(f"\n{'=' * 60}")
+        print(
+            "Session finished (Versions 1-6: plan, explain, quiz, "
+            "coach, checkpoints, traces)."
+        )
+        print(f"Session ID: {session_id}")
+        print(f"{'=' * 60}\n")
+    except KeyboardInterrupt:
+        print("\n[Interrupted] Session paused. Resume later with:")
+        print(f"  python main.py --resume {session_id}")
     except Exception as e:
         if is_resume:
             print(f"\n[ERROR] Could not resume session '{session_id}': {e}")
@@ -137,27 +162,9 @@ def run_session(goal: str, session_id: str | None = None) -> None:
             )
             return
         raise
-
-    # HITL: interrupt() inside human_approval_node returns "__interrupt__".
-    # Rejecting the plan re-runs the planner and may interrupt again.
-    while "__interrupt__" in result:
-        interrupt_payload = result["__interrupt__"][0].value
-        print_interrupt_roadmap(interrupt_payload)
-        print(f"\n{interrupt_payload.get('prompt', 'Continue?')}")
-        user_input = input("> ").strip()
-        result = graph.invoke(Command(resume=user_input), config=config)
-
-    if result.get("error"):
-        print(f"\n[ERROR] {result['error']}")
+    finally:
+        # Always flush traces (Ctrl+C used to skip this and empty Langfuse).
         flush_langfuse()
-        return
-
-    print_session_summary(result)
-    print(f"\n{'=' * 60}")
-    print("Session finished (Versions 1-6: plan, explain, quiz, coach, checkpoints, traces).")
-    print(f"Session ID: {session_id}")
-    print(f"{'=' * 60}\n")
-    flush_langfuse()
 
 
 def print_sessions() -> None:

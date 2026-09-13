@@ -123,6 +123,17 @@ def curriculum_planner_node(state: dict) -> dict:
             "messages": messages + [response],
         }
 
+    # Optional short demos: DEMO_MAX_TOPICS=2 (or MAX_TOPICS)
+    max_raw = os.getenv("DEMO_MAX_TOPICS") or os.getenv("MAX_TOPICS")
+    if max_raw:
+        try:
+            n = max(1, int(max_raw))
+            if len(roadmap.topics) > n:
+                roadmap.topics = roadmap.topics[:n]
+                print(f"[Curriculum Planner] Trimmed to {n} topic(s) (DEMO_MAX_TOPICS)")
+        except ValueError:
+            pass
+
     print(f"[Curriculum Planner] Created {len(roadmap.topics)} topics")
     return {
         "roadmap": roadmap,

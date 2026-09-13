@@ -103,17 +103,21 @@ APPROACH (follow this sequence):
 1. Call tool_list_files() to see what materials are available
 2. Call tool_search_notes(topic) to find which files cover this topic
 3. Call tool_read_file(filename) to read the most relevant file(s)
-4. Check prior context: call tool_memory_get(session_id, 'explained_topics')
-5. Write your explanation based on what you found in the notes
+4. Optionally call tool_memory_get(session_id, 'explained_topics') for prior context
+5. Optionally call tool_memory_set(...) to record topics covered
+6. Your FINAL message (no tool calls) MUST be the full student-facing explanation
 
-EXPLANATION FORMAT:
+EXPLANATION FORMAT (final message only):
 - Start with a real-world analogy (1-2 sentences)
 - State the core concept clearly (2-3 sentences)
-- Show a concrete code example from the student's notes
+- Show a concrete code example (from notes when possible)
 - End with one common mistake or gotcha to watch out for
 
-After writing the explanation, store what you explained:
-  tool_memory_set(session_id, 'explained_topics', <comma-separated topic titles>)
+CRITICAL RULES:
+- Never use your final message only to say you stored something or to offer further help.
+- If notes do not cover the topic well, say so briefly, then teach from the closest
+  related notes and general accurate knowledge of the topic.
+- tool_memory_set is for other agents — it is NOT a substitute for teaching.
 """
 
 
@@ -132,12 +136,26 @@ def execute_tool_call(tool_call: dict) -> str:
         return f"Error executing {name}({args}): {type(e).__name__}: {e}"
 
 
+def _looks_like_memory_ack(content: str) -> bool:
+    low = (content or "").lower().strip()
+    if not low:
+        return True
+    if len(low) < 220 and (
+        "i've stored" in low
+        or "i have stored" in low
+        or "stored the explanation" in low
+        or ("future reference" in low and "feel free" in low)
+    ):
+        return True
+    return False
+
+
 def explainer_node(state: dict) -> dict:
     """
     LangGraph node: Explainer
 
     Reads:  state["roadmap"], state["current_topic_index"], state["session_id"]
-    Writes: state["messages"], state["error"]
+    Writes: state["messages"], state["last_explanation"], state["error"]
     """
     topic = get_current_topic(state)
     if topic is None:
@@ -146,10 +164,11 @@ def explainer_node(state: dict) -> dict:
     session_id = state.get("session_id", "unknown")
     print(f"\n[Explainer] Topic: '{topic.title}'")
 
-    llm = ChatOpenAI(
+    llm_with_tools = ChatOpenAI(
         model=MODEL_NAME,
         temperature=0.3,
     ).bind_tools(EXPLAINER_TOOLS)
+    llm_plain = ChatOpenAI(model=MODEL_NAME, temperature=0.3)
 
     messages = [
         SystemMessage(content=EXPLAINER_SYSTEM_PROMPT),
@@ -166,7 +185,7 @@ def explainer_node(state: dict) -> dict:
 
     for iteration in range(MAX_TOOL_ITERATIONS):
         print(f"[Explainer] LLM call {iteration + 1}/{MAX_TOOL_ITERATIONS}...")
-        response = llm.invoke(messages)
+        response = llm_with_tools.invoke(messages)
         messages.append(response)
 
         tool_calls = getattr(response, "tool_calls", None) or []
@@ -189,18 +208,43 @@ def explainer_node(state: dict) -> dict:
             )
 
     if final_response is None:
-        return {
-            "messages": messages,
-            "error": (
-                f"Explainer reached max iterations ({MAX_TOOL_ITERATIONS})."
-            ),
-        }
+        # Hit tool-call limit — force a plain explanation turn
+        print("[Explainer] Max tool iterations; forcing explanation turn...")
+        messages.append(
+            HumanMessage(
+                content=(
+                    "Stop using tools. Write the full student-facing explanation now "
+                    "using the format in your instructions."
+                )
+            )
+        )
+        final_response = llm_plain.invoke(messages)
+        messages.append(final_response)
 
-    content = final_response.content or ""
+    content = (final_response.content or "").strip()
+    if _looks_like_memory_ack(content):
+        print("[Explainer] Final reply looked like a memory ack; regenerating...")
+        messages.append(
+            HumanMessage(
+                content=(
+                    "That was not an explanation. Write the full lesson now "
+                    "(analogy, concept, code example, common mistake). "
+                    "Do not mention storing or memory."
+                )
+            )
+        )
+        final_response = llm_plain.invoke(messages)
+        messages.append(final_response)
+        content = (final_response.content or "").strip()
+
     print(f"[Explainer] Explanation: {len(content)} characters")
     if content:
         print(f"\n{'─' * 60}")
         print(content)
         print(f"{'─' * 60}\n")
 
-    return {"messages": messages, "error": None}
+    return {
+        "messages": messages,
+        "last_explanation": content,
+        "error": None,
+    }

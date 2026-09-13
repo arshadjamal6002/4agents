@@ -157,6 +157,8 @@ class AgentState(TypedDict):
     weak_areas: list[str]
     study_materials_path: str
     error: str | None
+    last_explanation: str
+    last_coaching_message: str
 
 
 def initial_state(
@@ -176,6 +178,8 @@ def initial_state(
         "weak_areas": [],
         "study_materials_path": study_materials_path,
         "error": None,
+        "last_explanation": "",
+        "last_coaching_message": "",
     }
 
 
