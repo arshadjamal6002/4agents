@@ -12,8 +12,8 @@ Four agents coordinated by LangGraph:
 
 1. **Curriculum Planner** — goal → structured study roadmap  
 2. **Explainer** — explains topics from your notes via MCP  
-3. **Quiz Generator** — quizzes and grades you (Version 4)  
-4. **Progress Coach** — adapts and routes (Version 4)
+3. **Quiz Generator** — quizzes you and grades answers (LLM-as-judge)  
+4. **Progress Coach** — feedback, memory, advance / end routing  
 
 ## Current progress
 
@@ -22,31 +22,30 @@ Four agents coordinated by LangGraph:
 | 1 | When to use multiple agents + project setup | Done |
 | 2 | LangGraph state, planner, graph | Done |
 | 3 | MCP + Explainer | Done |
-| 4–9 | Quiz, coach, HITL deep-dive, Langfuse, eval, A2A, … | Not yet |
+| 4 | Quiz + Progress Coach + full loop | Done |
+| 5–9 | HITL deep-dive, Langfuse, eval, A2A, … | Not yet |
 
 ## Setup (Version 1)
 
-Use **Python 3.11 or 3.12** (3.14 may lack wheels for pinned deps like `pydantic-core`).
+Use **Python 3.11 or 3.12**.
 
 ```bash
-# Windows (pick 3.12 if you have multiple Pythons):
 py -3.12 -m venv .venv
 .venv\Scripts\activate
-
 pip install -r requirements.txt
 copy .env.example .env
 # Edit .env: set OPENAI_API_KEY
 ```
 
-## Run (Version 3)
+## Run (Version 4)
 
 ```bash
 python main.py "Learn Python closures and decorators from scratch"
 ```
 
-Flow today: Planner → approve (`yes`/`no`) → **Explainer** (MCP tool loop on your notes) → quiz/coach stubs end the session.
+Flow: Planner → approve → **Explainer → Quiz → Coach** → next topic (or END).
 
-Resume:
+A full roadmap uses many OpenAI calls. Resume anytime:
 
 ```bash
 python main.py --resume <session-id>

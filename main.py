@@ -20,9 +20,48 @@ load_dotenv()
 
 from langgraph.types import Command
 
-from graph.state import StudyRoadmap, initial_state
+from graph.state import QuizResult, StudyRoadmap, initial_state
 from graph.workflow import graph
 from observability.langfuse_setup import flush_langfuse, get_run_config
+
+
+def print_session_summary(result: dict) -> None:
+    """Print quiz scores after a completed session."""
+    raw_roadmap = result.get("roadmap")
+    if raw_roadmap is None:
+        return
+
+    roadmap = (
+        StudyRoadmap.from_dict(raw_roadmap)
+        if isinstance(raw_roadmap, dict)
+        else raw_roadmap
+    )
+
+    raw_results = result.get("quiz_results", [])
+    quiz_results = [
+        QuizResult.from_dict(r) if isinstance(r, dict) else r for r in raw_results
+    ]
+    if not quiz_results:
+        return
+
+    print(f"\n{'=' * 60}")
+    print("Session Summary")
+    print(f"{'=' * 60}")
+    print(f"Goal: {roadmap.goal}")
+    print(f"Topics covered: {len(quiz_results)}/{len(roadmap.topics)}")
+
+    avg = sum(r.score for r in quiz_results) / len(quiz_results)
+    print(f"Average score: {avg:.0%}\n")
+
+    for r in quiz_results:
+        status = "OK" if r.score >= 0.5 else "X"
+        weak = f", review: {', '.join(r.weak_areas)}" if r.weak_areas else ""
+        print(f"  {status} {r.topic}: {r.score:.0%}{weak}")
+
+    all_weak = result.get("weak_areas", [])
+    if all_weak:
+        print(f"\nTopics to revisit: {', '.join(all_weak)}")
+    print(f"{'=' * 60}\n")
 
 
 def run_session(goal: str, session_id: str | None = None) -> None:
@@ -93,9 +132,9 @@ def run_session(goal: str, session_id: str | None = None) -> None:
         flush_langfuse()
         return
 
+    print_session_summary(result)
     print(f"\n{'=' * 60}")
-    print("Version 3 complete (Planner + MCP Explainer).")
-    print("Quiz / Coach are stubs until Version 4.")
+    print("Version 4 complete (full study loop).")
     print(f"Save this Session ID to resume later: {session_id}")
     print(f"{'=' * 60}\n")
     flush_langfuse()
@@ -107,7 +146,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=(
             "Learning Accelerator: multi-agent study system "
-            "(OpenAI + LangGraph + MCP). Versions 1-3 implemented."
+            "(OpenAI + LangGraph + MCP). Versions 1-4 implemented."
         ),
         epilog=(
             "Examples:\n"
