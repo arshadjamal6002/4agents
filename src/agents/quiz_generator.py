@@ -1,10 +1,10 @@
-"""Quiz Generator stub — full quiz + grading arrives in Chapter 4."""
+"""Quiz Generator stub — full quiz + grading arrives in Version 4."""
 
 from __future__ import annotations
 
 
 def quiz_generator_node(state: dict) -> dict:
-    print("[Quiz Generator] Stub (Chapter 4) — skipped.")
+    print("[Quiz Generator] Stub (Version 4) — skipped.")
     return {
         "quiz_results": state.get("quiz_results", []),
         "weak_areas": state.get("weak_areas", []),

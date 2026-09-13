@@ -94,8 +94,8 @@ def run_session(goal: str, session_id: str | None = None) -> None:
         return
 
     print(f"\n{'=' * 60}")
-    print("Chapter 2 complete.")
-    print("Explainer / Quiz / Coach are stubs until Chapters 3–4.")
+    print("Version 3 complete (Planner + MCP Explainer).")
+    print("Quiz / Coach are stubs until Version 4.")
     print(f"Save this Session ID to resume later: {session_id}")
     print(f"{'=' * 60}\n")
     flush_langfuse()
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=(
             "Learning Accelerator: multi-agent study system "
-            "(OpenAI + LangGraph). Chapters 1-2 implemented."
+            "(OpenAI + LangGraph + MCP). Versions 1-3 implemented."
         ),
         epilog=(
             "Examples:\n"

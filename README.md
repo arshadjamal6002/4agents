@@ -1,31 +1,30 @@
 # Learning Accelerator
 
-Multi-agent study system built chapter-by-chapter from the freeCodeCamp handbook
+Multi-agent study system built **version by version** from the freeCodeCamp handbook
 **How to Build a Multi-Agent AI System with LangGraph, MCP, and A2A**, adapted to
 use the **OpenAI API** instead of a local Ollama model.
+
+Blog chapter N = **Version N** in this repo.
 
 ## What this is
 
 Four agents coordinated by LangGraph:
 
 1. **Curriculum Planner** — goal → structured study roadmap  
-2. **Explainer** — explains topics from your notes (MCP — Chapter 3)  
-3. **Quiz Generator** — quizzes and grades you (Chapter 4)  
-4. **Progress Coach** — adapts and routes (Chapter 4)
-
-Plus human approval, SQLite checkpointing, MCP tools, A2A, Langfuse, and DeepEval
-as later chapters land.
+2. **Explainer** — explains topics from your notes via MCP  
+3. **Quiz Generator** — quizzes and grades you (Version 4)  
+4. **Progress Coach** — adapts and routes (Version 4)
 
 ## Current progress
 
-| Chapter | Status |
-|---------|--------|
-| 1 — When to use multiple agents + project setup | Done |
-| 2 — LangGraph state, planner, graph | Done |
-| 3 — MCP + Explainer | Not yet |
-| 4–9 | Not yet |
+| Version | Blog chapter | Status |
+|---------|--------------|--------|
+| 1 | When to use multiple agents + project setup | Done |
+| 2 | LangGraph state, planner, graph | Done |
+| 3 | MCP + Explainer | Done |
+| 4–9 | Quiz, coach, HITL deep-dive, Langfuse, eval, A2A, … | Not yet |
 
-## Setup (Chapter 1)
+## Setup (Version 1)
 
 Use **Python 3.11 or 3.12** (3.14 may lack wheels for pinned deps like `pydantic-core`).
 
@@ -34,24 +33,20 @@ Use **Python 3.11 or 3.12** (3.14 may lack wheels for pinned deps like `pydantic
 py -3.12 -m venv .venv
 .venv\Scripts\activate
 
-# macOS/Linux:
-# python3.12 -m venv .venv && source .venv/bin/activate
-
 pip install -r requirements.txt
 copy .env.example .env
 # Edit .env: set OPENAI_API_KEY
 ```
 
-## Run (Chapter 2)
+## Run (Version 3)
 
 ```bash
 python main.py "Learn Python closures and decorators from scratch"
 ```
 
-You should see a generated roadmap, then an approval prompt (`yes` / `no`).
-After approval, later agents are stubs until Chapters 3–4.
+Flow today: Planner → approve (`yes`/`no`) → **Explainer** (MCP tool loop on your notes) → quiz/coach stubs end the session.
 
-Resume a session:
+Resume:
 
 ```bash
 python main.py --resume <session-id>
