@@ -1,28 +1,36 @@
-"""Human-in-the-loop roadmap approval (Chapter 2 / detailed in Chapter 5)."""
+"""Human-in-the-loop roadmap approval — Version 5 (interrupt / resume)."""
 
 from __future__ import annotations
 
 from langgraph.types import interrupt
+
+from graph.checkpointing import coerce_roadmap
 
 
 def human_approval_node(state: dict) -> dict:
     """
     Pause for roadmap approval via interrupt().
 
-    After Command(resume=...), LangGraph 1.1 may only forward keys this node
-    returns — so we re-emit the fields downstream nodes need.
+    interrupt() checkpoints state and returns control to the caller.
+    The caller resumes with Command(resume=user_input). Execution continues
+    on the next line with `decision` set to that value.
+
+    LangGraph 1.1 caveat: after resume, downstream nodes may only see keys
+    this node returns — so we re-emit every field later agents need.
     """
-    roadmap = state.get("roadmap")
+    roadmap = coerce_roadmap(state.get("roadmap"))
 
     if roadmap is None:
         return {"approved": True}
 
     print("\n[Human Approval] Pausing for roadmap review...")
 
+    # Pass a plain dict in the payload so interrupt/checkpoint round-trips
+    # stay JSON-friendly; main.py coerces back to StudyRoadmap.
     decision = interrupt(
         {
             "type": "roadmap_approval",
-            "roadmap": roadmap,
+            "roadmap": roadmap.to_dict(),
             "prompt": (
                 "Does this study plan look good?\n"
                 "  Type 'yes' to start studying\n"
@@ -38,6 +46,7 @@ def human_approval_node(state: dict) -> dict:
     else:
         print("[Human Approval] Roadmap rejected. Regenerating...")
 
+    # Re-emit full contract after interrupt/resume (Version 5 requirement).
     return {
         "approved": approved,
         "roadmap": roadmap,

@@ -4,6 +4,7 @@ Learning Accelerator entry point.
 Usage:
   python main.py "Learn Python closures from scratch"
   python main.py --resume <session-id>
+  python main.py --list-sessions
 """
 
 from __future__ import annotations
@@ -20,22 +21,22 @@ load_dotenv()
 
 from langgraph.types import Command
 
-from graph.state import QuizResult, StudyRoadmap, initial_state
+from graph.checkpointing import (
+    checkpoint_db_path,
+    coerce_roadmap,
+    list_session_ids,
+    session_exists,
+)
+from graph.state import QuizResult, initial_state
 from graph.workflow import graph
 from observability.langfuse_setup import flush_langfuse, get_run_config
 
 
 def print_session_summary(result: dict) -> None:
     """Print quiz scores after a completed session."""
-    raw_roadmap = result.get("roadmap")
-    if raw_roadmap is None:
+    roadmap = coerce_roadmap(result.get("roadmap"))
+    if roadmap is None:
         return
-
-    roadmap = (
-        StudyRoadmap.from_dict(raw_roadmap)
-        if isinstance(raw_roadmap, dict)
-        else raw_roadmap
-    )
 
     raw_results = result.get("quiz_results", [])
     quiz_results = [
@@ -64,22 +65,66 @@ def print_session_summary(result: dict) -> None:
     print(f"{'=' * 60}\n")
 
 
+def print_interrupt_roadmap(interrupt_payload: dict) -> None:
+    roadmap = coerce_roadmap(interrupt_payload.get("roadmap"))
+    if not roadmap:
+        return
+
+    print(f"\n{'=' * 60}")
+    print("Proposed Study Plan")
+    print(f"{'=' * 60}")
+    print(f"Goal: {roadmap.goal}")
+    print(
+        f"Duration: {roadmap.total_weeks} weeks @ "
+        f"{roadmap.weekly_hours} hrs/week\n"
+    )
+    for i, topic in enumerate(roadmap.topics, 1):
+        prereqs = (
+            f" (needs: {', '.join(topic.prerequisites)})"
+            if topic.prerequisites
+            else ""
+        )
+        print(
+            f"  {i}. {topic.title} "
+            f"({topic.estimated_minutes} min){prereqs}"
+        )
+        print(f"     {topic.description}")
+
+
 def run_session(goal: str, session_id: str | None = None) -> None:
     is_resume = session_id is not None
     if not session_id:
         session_id = str(uuid.uuid4())[:8]
 
+    if is_resume and not session_exists(session_id):
+        print(f"\n[ERROR] No checkpoint found for session '{session_id}'.")
+        print(f"Database: {checkpoint_db_path()}")
+        known = list_session_ids()
+        if known:
+            print("Known sessions:")
+            for sid in known:
+                print(f"  - {sid}")
+        else:
+            print("No sessions in the checkpoint database yet.")
+        return
+
+    # Same config (thread_id) on every invoke/resume — that is how LangGraph
+    # loads the right checkpoint row (Version 5).
     config = get_run_config(session_id)
 
     print(f"\n{'=' * 60}")
     print("Learning Accelerator")
     print(f"Session ID: {session_id}")
     if is_resume:
-        print("Resuming existing session...")
+        print("Resuming existing session from SQLite checkpoint...")
     else:
         print(f"Goal: {goal}")
+        print("Tip: if you stop mid-run, resume with:")
+        print(f'  python main.py --resume {session_id}')
     print(f"{'=' * 60}")
 
+    # New session: provide initial state. Resume: pass None so LangGraph
+    # loads the latest checkpoint for this thread_id.
     state = None if is_resume else initial_state(goal, session_id)
 
     try:
@@ -93,36 +138,11 @@ def run_session(goal: str, session_id: str | None = None) -> None:
             return
         raise
 
+    # HITL: interrupt() inside human_approval_node returns "__interrupt__".
+    # Rejecting the plan re-runs the planner and may interrupt again.
     while "__interrupt__" in result:
         interrupt_payload = result["__interrupt__"][0].value
-        raw_roadmap = interrupt_payload.get("roadmap")
-        roadmap = (
-            StudyRoadmap.from_dict(raw_roadmap)
-            if isinstance(raw_roadmap, dict)
-            else raw_roadmap
-        )
-
-        if roadmap:
-            print(f"\n{'=' * 60}")
-            print("Proposed Study Plan")
-            print(f"{'=' * 60}")
-            print(f"Goal: {roadmap.goal}")
-            print(
-                f"Duration: {roadmap.total_weeks} weeks @ "
-                f"{roadmap.weekly_hours} hrs/week\n"
-            )
-            for i, topic in enumerate(roadmap.topics, 1):
-                prereqs = (
-                    f" (needs: {', '.join(topic.prerequisites)})"
-                    if topic.prerequisites
-                    else ""
-                )
-                print(
-                    f"  {i}. {topic.title} "
-                    f"({topic.estimated_minutes} min){prereqs}"
-                )
-                print(f"     {topic.description}")
-
+        print_interrupt_roadmap(interrupt_payload)
         print(f"\n{interrupt_payload.get('prompt', 'Continue?')}")
         user_input = input("> ").strip()
         result = graph.invoke(Command(resume=user_input), config=config)
@@ -134,10 +154,22 @@ def run_session(goal: str, session_id: str | None = None) -> None:
 
     print_session_summary(result)
     print(f"\n{'=' * 60}")
-    print("Version 4 complete (full study loop).")
-    print(f"Save this Session ID to resume later: {session_id}")
+    print("Session finished (Versions 1-5: plan, explain, quiz, coach, checkpoints).")
+    print(f"Session ID: {session_id}")
     print(f"{'=' * 60}\n")
     flush_langfuse()
+
+
+def print_sessions() -> None:
+    db = checkpoint_db_path()
+    sessions = list_session_ids(db)
+    print(f"Checkpoint DB: {db}")
+    if not sessions:
+        print("No saved sessions.")
+        return
+    print(f"Saved sessions ({len(sessions)}):")
+    for sid in sessions:
+        print(f"  - {sid}")
 
 
 if __name__ == "__main__":
@@ -146,12 +178,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=(
             "Learning Accelerator: multi-agent study system "
-            "(OpenAI + LangGraph + MCP). Versions 1-4 implemented."
+            "(OpenAI + LangGraph + MCP). Versions 1-5 implemented."
         ),
         epilog=(
             "Examples:\n"
             '  python main.py "Learn Python closures from scratch"\n'
             "  python main.py --resume a3f1b2c4\n"
+            "  python main.py --list-sessions\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -164,11 +197,18 @@ if __name__ == "__main__":
     parser.add_argument(
         "--resume",
         metavar="SESSION_ID",
-        help="Resume an existing session by its 8-char ID",
+        help="Resume an existing session by its ID (loads SQLite checkpoint)",
+    )
+    parser.add_argument(
+        "--list-sessions",
+        action="store_true",
+        help="List thread_ids stored in the checkpoint database",
     )
     args = parser.parse_args()
 
-    if args.resume:
+    if args.list_sessions:
+        print_sessions()
+    elif args.resume:
         run_session(goal="", session_id=args.resume)
     else:
         run_session(goal=args.goal)

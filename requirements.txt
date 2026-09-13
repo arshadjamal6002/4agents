@@ -1,4 +1,4 @@
-# Version 1–4 dependencies (OpenAI instead of Ollama).
+# Version 1–5 dependencies (OpenAI instead of Ollama).
 # Later versions add: a2a-sdk, crewai, langfuse, deepeval, etc.
 
 langgraph==1.1.0

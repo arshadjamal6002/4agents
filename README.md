@@ -15,6 +15,8 @@ Four agents coordinated by LangGraph:
 3. **Quiz Generator** — quizzes you and grades answers (LLM-as-judge)  
 4. **Progress Coach** — feedback, memory, advance / end routing  
 
+Plus **human approval**, **SQLite checkpoints**, and **session resume**.
+
 ## Current progress
 
 | Version | Blog chapter | Status |
@@ -23,9 +25,10 @@ Four agents coordinated by LangGraph:
 | 2 | LangGraph state, planner, graph | Done |
 | 3 | MCP + Explainer | Done |
 | 4 | Quiz + Progress Coach + full loop | Done |
-| 5–9 | HITL deep-dive, Langfuse, eval, A2A, … | Not yet |
+| 5 | Checkpointing + HITL interrupt/resume | Done |
+| 6–9 | Langfuse, DeepEval, A2A, polish | Not yet |
 
-## Setup (Version 1)
+## Setup
 
 Use **Python 3.11 or 3.12**.
 
@@ -37,17 +40,18 @@ copy .env.example .env
 # Edit .env: set OPENAI_API_KEY
 ```
 
-## Run (Version 4)
+## Run
 
 ```bash
 python main.py "Learn Python closures and decorators from scratch"
 ```
 
-Flow: Planner → approve → **Explainer → Quiz → Coach** → next topic (or END).
+Flow: Planner → approve (`yes`/`no`) → Explainer → Quiz → Coach → next topic…
 
-A full roadmap uses many OpenAI calls. Resume anytime:
+Resume after a stop or crash (same Session ID printed at start):
 
 ```bash
+python main.py --list-sessions
 python main.py --resume <session-id>
 ```
 

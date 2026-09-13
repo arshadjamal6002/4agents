@@ -1,4 +1,4 @@
-"""LangGraph workflow — Chapter 2."""
+"""LangGraph workflow — Versions 2–5 (orchestration + SQLite checkpoints)."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from graph.state import AgentState, session_is_complete
 
 
 def route_after_approval(state: dict) -> str:
+    """Pure Python routing — never use an LLM for control flow."""
     if state.get("approved", False):
         return "explainer"
     return "curriculum_planner"
@@ -36,10 +37,14 @@ def build_graph(
     """
     Build and compile the Learning Accelerator graph.
 
-    Sqlite connection stays open for process lifetime (do not use a
-    context-manager from_conn_string that closes when the with-block exits).
-    check_same_thread=False is required because LangGraph checkpoints
-    on a different thread than node execution.
+    Checkpoint pattern (Version 5):
+    - Open sqlite3 yourself with check_same_thread=False.
+    - Do NOT use `with SqliteSaver.from_conn_string(...)` for a module-level
+      graph: the connection would close when the with-block exits.
+    - thread_id in invoke config (= session_id) selects the checkpoint row.
+    - interrupt_before: optional compile-time pauses (e.g. Streamlit UI
+      pausing before quiz_generator). Terminal HITL uses interrupt() inside
+      human_approval_node instead.
     """
     Path("data").mkdir(exist_ok=True)
     if db_path == "data/checkpoints.db":
@@ -72,10 +77,14 @@ def build_graph(
     conn = sqlite3.connect(db_path, check_same_thread=False)
     checkpointer = SqliteSaver(conn)
 
-    return builder.compile(
+    compiled = builder.compile(
         checkpointer=checkpointer,
         interrupt_before=interrupt_before or [],
     )
+    # Keep the connection reachable so tests (and shutdown hooks) can close it.
+    # The connection must stay open for the process lifetime during normal runs.
+    compiled._checkpoint_conn = conn  # type: ignore[attr-defined]
+    return compiled
 
 
 graph = build_graph()
