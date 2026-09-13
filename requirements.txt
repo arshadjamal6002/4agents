@@ -1,5 +1,5 @@
-# Version 1–5 dependencies (OpenAI instead of Ollama).
-# Later versions add: a2a-sdk, crewai, langfuse, deepeval, etc.
+# Version 1–6 dependencies (OpenAI instead of Ollama).
+# Later versions add: a2a-sdk, crewai, deepeval, etc.
 
 langgraph==1.1.0
 langgraph-checkpoint==3.0.1
@@ -9,6 +9,10 @@ langchain-core==1.0.0
 langchain-openai==1.0.0
 
 mcp==1.26.0
+langfuse==3.9.1
+# Langfuse CallbackHandler does `import langchain`. Install WITHOUT deps so it
+# does not pull an incompatible langgraph:
+#   pip install langchain==1.0.0 --no-deps
 
 openai==2.8.0
 httpx==0.28.1
