@@ -9,3 +9,5 @@ data/
 *.db
 .DS_Store
 .streamlit/secrets.toml
+venv/
+.deepeval/

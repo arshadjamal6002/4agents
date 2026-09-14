@@ -181,19 +181,19 @@ def render_topic_history() -> None:
             score_bit = ""
             if qr:
                 score_bit = f" — quiz {float(qr.get('score', 0)):.0%}"
-            with st.expander(f"{lesson.get('index', 0) + 1}. {title}{score_bit}"):
-                if lesson.get("description"):
-                    st.caption(lesson["description"])
-                if lesson.get("explanation"):
-                    st.markdown(lesson["explanation"])
-                else:
-                    st.warning("No saved explanation for this topic.")
-                if qr:
-                    st.markdown("---")
-                    st.markdown(f"**Score:** {float(qr.get('score', 0)):.0%}")
-                    weak = qr.get("weak_areas") or []
-                    if weak:
-                        st.markdown(f"**Review:** {', '.join(weak[:4])}")
+            st.markdown(f"**{lesson.get('index', 0) + 1}. {title}{score_bit}**")
+            if lesson.get("description"):
+                st.caption(lesson["description"])
+            if lesson.get("explanation"):
+                st.markdown(lesson["explanation"])
+            else:
+                st.warning("No saved explanation for this topic.")
+            if qr:
+                st.markdown(f"**Score:** {float(qr.get('score', 0)):.0%}")
+                weak = qr.get("weak_areas") or []
+                if weak:
+                    st.markdown(f"**Review:** {', '.join(weak[:4])}")
+            st.markdown("---")
 
 
 def resolve_explanation(result: dict, messages: list) -> str:
